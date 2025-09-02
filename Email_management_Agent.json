@@ -1,0 +1,230 @@
+{
+  "name": "Mail_Responder",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Greet the user warmly using their name. Use plain, conversational English without any special characters or emojis.\n\nIf the user's message includes anything related to the weather or a forecast, check whether they’ve mentioned a city.\n\nIf a city is mentioned, make an HTTP request to the weather API and include the current weather details in your reply.\n\nIf no city is mentioned, politely ask the user to provide their city so you can share accurate weather information.\n\nAlways store every interaction in the vector store, including the user's name and the full message content, for context and continuity.\n\nRespond like a professional assistant having a natural conversation. Keep responses friendly, helpful, and accurate.\n\nIf the user does not ask about the weather, skip the weather API call entirely.\n\nManage all tasks efficiently and ensure the interaction process is smooth and professional.\n\nThis assistant is exposed via the MCP endpoint, making it accessible over the internet for real-time interaction.",
+              "role": "model"
+            },
+            {
+              "content": "=from :{{ $json.From }},\nSubject:{{ $json.Subject }},\nmessage: {{ $json.snippet }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -272
+      ],
+      "id": "ee60d1a7-c3d5-4f0d-9ece-fea538897d37",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "R68et4NySD5MxhJq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $json.content.parts[0].text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        -272
+      ],
+      "id": "446c49f5-9c30-4069-8650-5c69bf2871e4",
+      "name": "Reply to a message",
+      "webhookId": "2697a600-2540-4e2d-9a93-67196d4a89f5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "OlFovmibfn1uknQh",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -272
+      ],
+      "id": "acf1584e-6944-4521-8606-6dcd875ae053",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "OlFovmibfn1uknQh",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "={{ $json.content.parts[0].text }}",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        },
+        "topK": 20,
+        "includeDocumentMetadata": false
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        -16
+      ],
+      "id": "60bf80aa-cf21-4a47-9c6c-e37d3baab876",
+      "name": "Simple Vector Store"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        240,
+        160
+      ],
+      "id": "b7316d33-ed29-4e67-b5ea-57c7ab4f1896",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "R68et4NySD5MxhJq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://api.weatherstack.com/current?access_key=16f07a4812fa06df25f9d5306d17b73e&query=city",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "city",
+              "value": "Lahore"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        544,
+        -16
+      ],
+      "id": "ce8160ba-fb0e-4160-a85c-42f1f9b6bbb0",
+      "name": "HTTP Request",
+      "notes": "Requesting the Api to fetch data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Reply to a message": {
+      "main": [
+        []
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Simple Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "EO0KYVZu3sqUZqdz"
+  },
+  "versionId": "fe941bb4-43b7-4d99-9ae6-8b0f02151440",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1cd1265cc47a139b9d28d9b4ac224517aea29f253f21c05e95da0c26b42fdf78"
+  },
+  "id": "EO0KYVZu3sqUZqdz",
+  "tags": []
+}
